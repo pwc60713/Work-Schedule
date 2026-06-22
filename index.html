@@ -444,10 +444,10 @@ async function loadData() {
       }
     });
 
-    // Work days this month (up to today)
+    // Work days this month (entire month)
     let workDays = 0;
     Object.entries(mySchedule).forEach(([date, val]) => {
-      if (date <= todayFull && val === '上班') workDays++;
+      if (val === '上班') workDays++;
     });
 
     // Next day off from today
