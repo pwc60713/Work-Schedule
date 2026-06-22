@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="light">
+<title>八曜排班</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #eceae6;
+  --surface: #f5f3ef;
+  --surface2: #e4e0d8;
+  --gold: #E8B84B;
+  --gold-light: rgba(232,184,75,0.15);
+  --teal: #3D6B63;
+  --teal-light: rgba(61,107,99,0.1);
+  --teal-mid: rgba(61,107,99,0.35);
+  --ink: #1e2e2b;
+  --ink-mid: rgba(30,46,43,0.55);
+  --ink-faint: rgba(30,46,43,0.12);
+  --off: #c97a4a;
+  --off-light: rgba(201,122,74,0.12);
+  --work: #3D6B63;
+  --work-light: rgba(61,107,99,0.12);
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, 'Helvetica Neue', 'PingFang TC', sans-serif;
+  min-height: 100vh;
+  padding-top: max(0px, env(safe-area-inset-top));
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+
+/* ── Header ── */
+.header {
+  background: var(--teal);
+  padding: max(18px, calc(env(safe-area-inset-top) + 14px)) 20px 16px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+}
+.header-left .brand {
+  font-size: 11px; letter-spacing: 0.25em;
+  color: rgba(255,255,255,0.55); margin-bottom: 4px;
+}
+.header-left .today-date {
+  font-size: 24px; font-weight: 300;
+  color: #fff; letter-spacing: -0.01em;
+}
+.header-left .today-weekday {
+  font-size: 13px; color: rgba(255,255,255,0.7);
+  margin-top: 2px;
+}
+.header-right .next-off {
+  text-align: right;
+}
+.header-right .next-off-label {
+  font-size: 10px; letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 3px;
+}
+.header-right .next-off-date {
+  font-size: 15px; font-weight: 500;
+  color: var(--gold);
+  letter-spacing: 0.03em;
+}
+.header-right .next-off-day {
+  font-size: 11px; color: rgba(255,255,255,0.55);
+  margin-top: 1px;
+}
+
+/* ── Status strip ── */
+.status-strip {
+  background: var(--gold);
+  padding: 9px 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--teal); flex-shrink: 0;
+}
+.status-text {
+  font-size: 12px; font-weight: 600;
+  color: var(--teal); letter-spacing: 0.05em;
+}
+.status-loading { color: rgba(61,107,99,0.6); font-style: italic; }
+
+/* ── Content ── */
+.content { padding: 16px 16px 0; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--ink-faint);
+}
+.card-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.18em; color: var(--ink-mid);
+  text-transform: uppercase; margin-bottom: 12px;
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 12px;
+}
+.stat-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--ink-faint);
+}
+.stat-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.15em; color: var(--ink-mid);
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-size: 28px; font-weight: 300;
+  color: var(--ink); letter-spacing: -0.02em;
+  line-height: 1;
+}
+.stat-unit {
+  font-size: 12px; color: var(--ink-mid);
+  margin-left: 3px; font-weight: 400;
+}
+
+/* ── Salary card ── */
+.salary-main {
+  font-size: 38px; font-weight: 300;
+  color: var(--teal); letter-spacing: -0.03em;
+  line-height: 1; margin-bottom: 12px;
+}
+.salary-main span { font-size: 16px; color: var(--ink-mid); font-weight: 400; margin-right: 4px; }
+.salary-breakdown {
+  display: flex; gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ink-faint);
+}
+.breakdown-item { flex: 1; }
+.breakdown-label { font-size: 10px; color: var(--ink-mid); margin-bottom: 3px; letter-spacing: 0.05em; }
+.breakdown-val { font-size: 14px; color: var(--ink); }
+.breakdown-val.deduct { color: var(--off); }
+
+/* ── Staff list ── */
+.staff-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.staff-chip {
+  background: var(--teal-light);
+  border: 1px solid var(--teal-mid);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 13px; color: var(--teal);
+  font-weight: 500;
+}
+.staff-chip.is-me {
+  background: var(--gold-light);
+  border-color: var(--gold);
+  color: #8a5e00;
+}
+.staff-count {
+  font-size: 12px; color: var(--ink-mid);
+  margin-top: 8px;
+}
+
+/* ── Calendar ── */
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.cal-month { font-size: 14px; font-weight: 600; color: var(--ink); letter-spacing: 0.05em; }
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-day-head {
+  text-align: center; font-size: 10px;
+  font-weight: 600; letter-spacing: 0.08em;
+  color: var(--ink-mid); padding: 4px 0;
+}
+.cal-day-head.sun { color: #c0392b; }
+.cal-day-head.sat { color: var(--teal); }
+.cal-cell {
+  text-align: center;
+  padding: 5px 2px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  position: relative;
+}
+.cal-cell.empty { pointer-events: none; }
+.cal-cell.today {
+  background: var(--teal);
+  color: #fff;
+  font-weight: 700;
+}
+.cal-cell.off-day {
+  background: var(--off-light);
+  color: var(--off);
+  font-weight: 500;
+}
+.cal-cell.off-day.today {
+  background: var(--gold);
+  color: var(--teal);
+}
+.cal-cell.sun-col { color: #c0392b; }
+.cal-cell.sat-col { color: var(--teal); }
+.cal-cell.today.sun-col, .cal-cell.today.sat-col { color: #fff; }
+.cal-cell.off-day.sun-col, .cal-cell.off-day.sat-col { color: var(--off); }
+
+/* ── Legend ── */
+.cal-legend {
+  display: flex; gap: 12px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--ink-faint);
+}
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-mid); }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── Error / Loading ── */
+.error-msg {
+  background: rgba(201,122,74,0.1);
+  border: 1px solid rgba(201,122,74,0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px; color: var(--off);
+  margin-bottom: 12px;
+}
+.loading-pulse {
+  height: 24px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--surface) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.4s ease infinite;
+  margin-bottom: 8px;
+}
+@keyframes pulse { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Refresh btn ── */
+.refresh-row {
+  text-align: center; padding: 8px 0 4px;
+}
+.refresh-btn {
+  background: none; border: 1px solid var(--ink-faint);
+  border-radius: 8px; padding: 7px 18px;
+  font-size: 12px; color: var(--ink-mid);
+  cursor: pointer; font-family: inherit;
+  letter-spacing: 0.05em;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="brand">八　曜　排　班</div>
+    <div class="today-date" id="hdr-date">—</div>
+    <div class="today-weekday" id="hdr-weekday">—</div>
+  </div>
+  <div class="header-right">
+    <div class="next-off">
+      <div class="next-off-label">下次休假</div>
+      <div class="next-off-date" id="hdr-next-off">讀取中</div>
+      <div class="next-off-day" id="hdr-next-off-day"></div>
+    </div>
+  </div>
+</div>
+
+<div class="status-strip" id="status-strip">
+  <div class="status-dot"></div>
+  <div class="status-text status-loading" id="status-text">資料讀取中…</div>
+</div>
+
+<div class="content">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">本月上班</div>
+      <div class="stat-value" id="stat-days">—<span class="stat-unit">天</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">上班時數</div>
+      <div class="stat-value" id="stat-hours">—<span class="stat-unit">hr</span></div>
+    </div>
+  </div>
+
+  <!-- Salary -->
+  <div class="card">
+    <div class="card-label">預期薪資</div>
+    <div class="salary-main" id="salary-main"><span>$</span>—</div>
+    <div class="salary-breakdown">
+      <div class="breakdown-item">
+        <div class="breakdown-label">稅前</div>
+        <div class="breakdown-val" id="bd-gross">—</div>
+      </div>
+      <div class="breakdown-item">
+        <div class="breakdown-label">勞保</div>
+        <div class="breakdown-val deduct" id="bd-labor">—</div>
+      </div>
+      <div class="breakdown-item">
+        <div class="breakdown-label">健保</div>
+        <div class="breakdown-val deduct" id="bd-health">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today staff -->
+  <div class="card">
+    <div class="card-label">今日上班人員</div>
+    <div class="staff-grid" id="staff-grid">
+      <div class="loading-pulse" style="width:80px;"></div>
+      <div class="loading-pulse" style="width:64px;"></div>
+      <div class="loading-pulse" style="width:72px;"></div>
+    </div>
+    <div class="staff-count" id="staff-count"></div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="card">
+    <div class="cal-header">
+      <div class="cal-month" id="cal-month-label">—</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--teal);"></div>今天</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--off-light);border:1px solid var(--off);"></div>休假</div>
+    </div>
+  </div>
+
+  <div class="refresh-row">
+    <button class="refresh-btn" id="refresh-btn">↻ 重新讀取</button>
+  </div>
+
+</div>
+
+<script>
+const MY_NAME = '潘韋璇';
+const WEEKDAYS = ['日','一','二','三','四','五','六'];
+const WEEKDAYS_FULL = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+const BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTqVoKamSn40wtB8s9Izmdm47FTIdPQ4k3d0KK-28Cc_wvZXbHhyUg-QNajpL1Ds5dVDhAVdMdr9bxU/pub';
+
+const GID_MAP = {
+  5:  '64096621',   // 5月 (from 6月 tab — user provided this as 6月)
+  6:  '64096621',
+  7:  '881686623',
+  8:  '346568048',
+  9:  '1409764439',
+  10: '2010136812',
+  11: '1837042522',
+  12: '793406518',
+};
+
+function getCsvUrl(month) {
+  const gid = GID_MAP[month];
+  if (!gid) return null;
+  return `${BASE_URL}?gid=${gid}&single=true&output=csv`;
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function fmt(n) { return Math.round(n).toLocaleString('zh-TW'); }
+
+// ── Salary calc ──────────────────────────────────────
+function calcSalary(workDays) {
+  const hours = workDays * 5;
+  const gross = hours * 200;
+  const base = gross <= 11100 ? 11100 : gross <= 12540 ? 12540 : 29500;
+  const labor = base * 0.125 * 0.2;
+  const health = base * 0.0517 * 0.3;
+  const net = gross - labor - health;
+  return { hours, gross, labor, health, net };
+}
+
+// ── Parse CSV ─────────────────────────────────────────
+function parseCsv(text) {
+  const lines = text.trim().split('\n');
+  return lines.map(line => {
+    const cells = [];
+    let cur = ''; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+// ── Main data load ────────────────────────────────────
+async function loadData() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const todayDate = now.getDate();
+  const todayFull = todayStr();
+
+  // Render date header immediately
+  document.getElementById('hdr-date').textContent = `${now.getMonth()+1} 月 ${now.getDate()} 日`;
+  document.getElementById('hdr-weekday').textContent = WEEKDAYS_FULL[now.getDay()];
+  renderCalSkeleton(now.getFullYear(), month);
+
+  const url = getCsvUrl(month);
+  if (!url) {
+    showError('此月份尚未設定資料來源');
+    return;
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('fetch failed');
+    const text = await res.text();
+    const rows = parseCsv(text);
+
+    if (rows.length < 2) throw new Error('empty data');
+
+    // Row 0 = headers (dates), Col 0 = names
+    const dateRow = rows[0];
+    const todayColIdx = dateRow.findIndex(cell => {
+      const d = cell.replace(/\//g,'-').trim();
+      return d === todayFull;
+    });
+
+    // Find my row
+    const myRowIdx = rows.findIndex(r => r[0].trim() === MY_NAME);
+
+    // Build date → my status map
+    const mySchedule = {}; // 'YYYY-MM-DD' → '上班'|'休假'|''
+    const year = now.getFullYear();
+    const mon = now.getMonth() + 1;
+    const daysInMonth = new Date(year, mon, 0).getDate();
+
+    dateRow.forEach((cell, colIdx) => {
+      if (colIdx === 0) return;
+      const d = cell.replace(/\//g,'-').trim();
+      if (d.startsWith(`${year}-${String(mon).padStart(2,'0')}`)) {
+        const val = myRowIdx >= 0 ? (rows[myRowIdx][colIdx] || '').trim() : '';
+        mySchedule[d] = val;
+      }
+    });
+
+    // Work days this month (up to today)
+    let workDays = 0;
+    Object.entries(mySchedule).forEach(([date, val]) => {
+      if (date <= todayFull && val === '上班') workDays++;
+    });
+
+    // Next day off from today
+    let nextOff = null;
+    for (let d = todayDate; d <= daysInMonth; d++) {
+      const dateKey = `${year}-${String(mon).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if (mySchedule[dateKey] === '休假') {
+        nextOff = dateKey; break;
+      }
+    }
+    // If not found this month, check next month
+    // (simplified: just show 下月待定 if not found)
+
+    // Today's staff
+    let todayStaff = [];
+    if (todayColIdx >= 0) {
+      rows.forEach((row, rIdx) => {
+        if (rIdx === 0) return;
+        if (row[0].trim() === '上班人數') return;
+        if (!row[0].trim()) return;
+        if ((row[todayColIdx] || '').trim() === '上班') {
+          todayStaff.push(row[0].trim());
+        }
+      });
+    }
+
+    // ── Update UI ──
+    const sal = calcSalary(workDays);
+
+    // Stats
+    document.getElementById('stat-days').innerHTML = `${workDays}<span class="stat-unit">天</span>`;
+    document.getElementById('stat-hours').innerHTML = `${sal.hours}<span class="stat-unit">hr</span>`;
+
+    // Salary
+    document.getElementById('salary-main').innerHTML = `<span>$</span>${fmt(sal.net)}`;
+    document.getElementById('bd-gross').textContent = `$${fmt(sal.gross)}`;
+    document.getElementById('bd-labor').textContent = `-$${fmt(sal.labor)}`;
+    document.getElementById('bd-health').textContent = `-$${fmt(sal.health)}`;
+
+    // Next off
+    if (nextOff) {
+      const nd = new Date(nextOff + 'T00:00:00');
+      document.getElementById('hdr-next-off').textContent = `${nd.getMonth()+1}/${nd.getDate()}`;
+      document.getElementById('hdr-next-off-day').textContent = WEEKDAYS_FULL[nd.getDay()];
+    } else {
+      document.getElementById('hdr-next-off').textContent = '本月無';
+      document.getElementById('hdr-next-off-day').textContent = '';
+    }
+
+    // Staff
+    const grid = document.getElementById('staff-grid');
+    grid.innerHTML = '';
+    if (todayStaff.length === 0) {
+      grid.innerHTML = '<div style="font-size:13px;color:var(--ink-mid);">今日無排班資料</div>';
+    } else {
+      todayStaff.forEach(name => {
+        const chip = document.createElement('div');
+        chip.className = 'staff-chip' + (name === MY_NAME ? ' is-me' : '');
+        chip.textContent = name === MY_NAME ? name + ' ✦' : name;
+        grid.appendChild(chip);
+      });
+    }
+    document.getElementById('staff-count').textContent = todayStaff.length ? `共 ${todayStaff.length} 人` : '';
+
+    // Calendar
+    renderCal(year, mon, mySchedule, todayFull);
+
+    // Status
+    const todayStatus = mySchedule[todayFull];
+    const statusEl = document.getElementById('status-text');
+    const stripEl = document.getElementById('status-strip');
+    if (todayStatus === '上班') {
+      statusEl.textContent = '今天上班中';
+      statusEl.className = 'status-text';
+      stripEl.style.background = 'var(--gold)';
+    } else if (todayStatus === '休假') {
+      statusEl.textContent = '今天休假 ✦';
+      statusEl.className = 'status-text';
+      stripEl.style.background = 'var(--teal)';
+      statusEl.style.color = '#fff';
+      document.querySelector('.status-dot').style.background = 'var(--gold)';
+    } else {
+      statusEl.textContent = '今日狀態未填寫';
+      statusEl.className = 'status-text';
+    }
+
+  } catch(e) {
+    showError('資料讀取失敗，請確認 Google Sheet 已發布並檢查網路連線');
+    console.error(e);
+  }
+}
+
+function renderCalSkeleton(year, month) {
+  document.getElementById('cal-month-label').textContent = `${year} 年 ${month} 月`;
+}
+
+function renderCal(year, month, mySchedule, todayFull) {
+  document.getElementById('cal-month-label').textContent = `${year} 年 ${month} 月`;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  ['日','一','二','三','四','五','六'].forEach((h, i) => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-head' + (i===0?' sun':i===6?' sat':'');
+    el.textContent = h;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(year, month-1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-cell empty'; grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const col = (firstDay + d - 1) % 7;
+    const isToday = dateStr === todayFull;
+    const isOff = mySchedule[dateStr] === '休假';
+    const el = document.createElement('div');
+    let cls = 'cal-cell';
+    if (isToday) cls += ' today';
+    if (isOff) cls += ' off-day';
+    if (col === 0 && !isToday) cls += ' sun-col';
+    if (col === 6 && !isToday) cls += ' sat-col';
+    el.className = cls;
+    el.textContent = d;
+    grid.appendChild(el);
+  }
+}
+
+function showError(msg) {
+  document.getElementById('status-text').textContent = '讀取失敗';
+  document.getElementById('status-text').className = 'status-text';
+  document.getElementById('status-strip').style.background = 'rgba(201,122,74,0.8)';
+  const content = document.querySelector('.content');
+  const err = document.createElement('div');
+  err.className = 'error-msg';
+  err.textContent = msg;
+  content.insertBefore(err, content.firstChild);
+}
+
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  document.querySelector('.content').querySelectorAll('.error-msg').forEach(e => e.remove());
+  loadData();
+});
+
+loadData();
+</script>
+</body>
+</html>
