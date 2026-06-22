@@ -226,10 +226,6 @@ body {
   color: var(--teal);
   font-weight: 700;
 }
-.cal-cell.today.selected {
-  background: var(--gold);
-  color: var(--teal);
-}
 
 /* ── Error / Loading ── */
 .error-msg {
@@ -353,13 +349,10 @@ const MY_NAME = '潘韋璇';
 const WEEKDAYS = ['日','一','二','三','四','五','六'];
 const WEEKDAYS_FULL = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
 
-let selectedDate = null; // 目前選取的日期
-let allRows = [];        // 儲存整份CSV供點日期時查詢
-
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsXIy4diHxCRb1GJdwrkkNJvgI1V8IbJOt7InkDOfbif79hSRkdJ-krRQbnRMnpUuJ1w/exec';
+const BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTqVoKamSn40wtB8s9Izmdm47FTIdPQ4k3d0KK-28Cc_wvZXbHhyUg-QNajpL1Ds5dVDhAVdMdr9bxU/pub';
 
 const GID_MAP = {
-  5:  '64096621',
+  5:  '64096621',   // 5月 (from 6月 tab — user provided this as 6月)
   6:  '64096621',
   7:  '881686623',
   8:  '346568048',
@@ -369,15 +362,10 @@ const GID_MAP = {
   12: '793406518',
 };
 
-async function fetchSheetData(month) {
-  const res = await fetch(`${APPS_SCRIPT_URL}?month=${month}`);
-  if (!res.ok) throw new Error('apps script fail');
-  const data = await res.json(); // returns 2D array
-  // Convert 2D array to CSV-like text for parseCsv
-  return data.map(row => row.map(cell => {
-    const s = String(cell);
-    return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s;
-  }).join(',')).join('\n');
+function getCsvUrl(month) {
+  const gid = GID_MAP[month];
+  if (!gid) return null;
+  return `${BASE_URL}?gid=${gid}&single=true&output=csv`;
 }
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
@@ -424,8 +412,16 @@ async function loadData() {
   document.getElementById('hdr-weekday').textContent = WEEKDAYS_FULL[now.getDay()];
   renderCalSkeleton(now.getFullYear(), month);
 
+  const url = getCsvUrl(month);
+  if (!url) {
+    showError('此月份尚未設定資料來源');
+    return;
+  }
+
   try {
-    const text = await fetchSheetData(month);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('fetch failed');
+    const text = await res.text();
     const rows = parseCsv(text);
 
     if (rows.length < 2) throw new Error('empty data');
@@ -472,12 +468,18 @@ async function loadData() {
     // If not found this month, check next month
     // (simplified: just show 下月待定 if not found)
 
-    // Store rows for interactive calendar
-    allRows = rows;
-    selectedDate = todayFull;
-
     // Today's staff
-    let todayStaff = getStaffForDate(rows, todayFull);
+    let todayStaff = [];
+    if (todayColIdx >= 0) {
+      rows.forEach((row, rIdx) => {
+        if (rIdx === 0) return;
+        if (row[0].trim() === '上班人數') return;
+        if (!row[0].trim()) return;
+        if ((row[todayColIdx] || '').trim() === '上班') {
+          todayStaff.push(row[0].trim());
+        }
+      });
+    }
 
     // ── Update UI ──
     const sal = calcSalary(workDays);
@@ -503,6 +505,8 @@ async function loadData() {
     }
 
     // Staff
+    allRows = rows;
+    selectedDate = todayFull;
     renderStaff(todayStaff, todayFull);
 
     // Calendar
@@ -528,13 +532,13 @@ async function loadData() {
     }
 
   } catch(e) {
-    const msg = e.name === 'AbortError'
-      ? '讀取逾時（10秒），請確認網路連線後重新整理'
-      : '資料讀取失敗，請確認 Google Sheet 已發布並檢查網路連線';
-    showError(msg);
+    showError('資料讀取失敗，請確認 Google Sheet 已發布並檢查網路連線');
     console.error(e);
   }
 }
+
+let allRows = [];
+let selectedDate = null;
 
 function getStaffForDate(rows, dateStr) {
   if (!rows || !rows.length) return [];
@@ -552,16 +556,13 @@ function getStaffForDate(rows, dateStr) {
 }
 
 function renderStaff(staff, dateStr) {
-  const now = new Date();
-  const todayFull = now.toISOString().split('T')[0];
-  const d = new Date(dateStr + 'T00:00:00');
+  const todayFull = new Date().toISOString().split('T')[0];
   const isToday = dateStr === todayFull;
-  const label = isToday ? '今日上班人員' : `${d.getMonth()+1}/${d.getDate()} 上班人員`;
-  document.getElementById('staff-card-label').textContent = label;
-
+  const d = new Date(dateStr + 'T00:00:00');
+  document.getElementById('staff-card-label').textContent = isToday ? '今日上班人員' : `${d.getMonth()+1}/${d.getDate()} 上班人員`;
   const grid = document.getElementById('staff-grid');
   grid.innerHTML = '';
-  if (staff.length === 0) {
+  if (!staff.length) {
     grid.innerHTML = '<div style="font-size:13px;color:var(--ink-mid);">此日無排班資料</div>';
   } else {
     staff.forEach(name => {
@@ -574,6 +575,9 @@ function renderStaff(staff, dateStr) {
   document.getElementById('staff-count').textContent = staff.length ? `共 ${staff.length} 人` : '';
 }
 
+function renderCalSkeleton(year, month) {
+  document.getElementById('cal-month-label').textContent = `${year} 年 ${month} 月`;
+}
 
 function renderCal(year, month, mySchedule, todayFull, selDate) {
   document.getElementById('cal-month-label').textContent = `${year} 年 ${month} 月`;
