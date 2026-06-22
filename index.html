@@ -426,7 +426,10 @@ async function loadData() {
   }
 
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url + '&cachebust=' + Date.now(), { signal: controller.signal });
+    clearTimeout(timeout);
     if (!res.ok) throw new Error('fetch failed');
     const text = await res.text();
     const rows = parseCsv(text);
@@ -531,7 +534,10 @@ async function loadData() {
     }
 
   } catch(e) {
-    showError('資料讀取失敗，請確認 Google Sheet 已發布並檢查網路連線');
+    const msg = e.name === 'AbortError'
+      ? '讀取逾時（10秒），請確認網路連線後重新整理'
+      : '資料讀取失敗，請確認 Google Sheet 已發布並檢查網路連線';
+    showError(msg);
     console.error(e);
   }
 }
